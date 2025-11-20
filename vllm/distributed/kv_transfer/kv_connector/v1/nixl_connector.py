@@ -73,7 +73,7 @@ try:
     logger.info("NIXL is available")
 except ImportError:
     logger.warning("NIXL is not available")
-    NixlWrapper = None
+    #NixlWrapper = None
     nixlXferTelemetry = None
 
 
@@ -91,7 +91,7 @@ _NIXL_SUPPORTED_DEVICE = {
         "cpu",
     ),
     "tpu": ("cpu",),
-    "xpu": ("cpu",),
+    "xpu": ("cpu", "xpu",),
     "cpu": ("cpu",),
 }
 # support for oot platform by providing mapping in current_platform
@@ -870,7 +870,7 @@ class NixlConnectorWorker:
         # type based on kv_buffer_device
         nixl_memory_type = current_platform.get_nixl_memory_type()
         if nixl_memory_type is None:
-            if self.kv_buffer_device == "cuda":
+            if self.kv_buffer_device == "cuda" or self.kv_buffer_device == "xpu":
                 nixl_memory_type = "VRAM"
             elif self.kv_buffer_device == "cpu":
                 nixl_memory_type = "DRAM"

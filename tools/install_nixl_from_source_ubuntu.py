@@ -12,10 +12,13 @@ import urllib.request
 # --- Configuration ---
 WHEELS_CACHE_HOME = os.environ.get("WHEELS_CACHE_HOME", "/tmp/wheels_cache")
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-UCX_DIR = os.path.join("/tmp", "ucx_source")
+UCX_DIR = "/workspace/vllm/ucx-gaudi"
+UCX_COMMIT = "yihuaxu/xpu_gdr_enabling"
 NIXL_DIR = os.path.join("/tmp", "nixl_source")
 UCX_INSTALL_DIR = os.path.join("/tmp", "ucx_install")
-UCX_REPO_URL = "https://github.com/openucx/ucx.git"
+PATCH_DIR = "/workspace/gdr_support_relase_1.diff"
+PATCH_COMMIT = "787dd7b5d074d0ba0755e6c50cc21fdb330114c3"
+UCX_REPO_URL = "https://github.com/intel-sandbox/ucx-gaudi.git"
 NIXL_REPO_URL = "https://github.com/ai-dynamo/nixl.git"
 
 
@@ -139,7 +142,8 @@ def build_and_install_prerequisites(args):
     if not os.path.exists(UCX_DIR):
         run_command(["git", "clone", UCX_REPO_URL, UCX_DIR])
     ucx_source_path = os.path.abspath(UCX_DIR)
-    run_command(["git", "checkout", "v1.19.x"], cwd=ucx_source_path)
+    run_command(["git", "checkout", UCX_COMMIT], cwd=ucx_source_path)
+    run_command(["make", "clean"], cwd=ucx_source_path)
     run_command(["./autogen.sh"], cwd=ucx_source_path)
     configure_command = [
         "./configure",
@@ -155,7 +159,7 @@ def build_and_install_prerequisites(args):
         "--with-ze=no",
     ]
     run_command(configure_command, cwd=ucx_source_path)
-    run_command(["make", "-j", str(os.cpu_count() or 1)], cwd=ucx_source_path)
+    run_command(["make", "CFLAGS=-Wno-error", "-j", str(os.cpu_count() or 1)], cwd=ucx_source_path)
     run_command(["make", "install"], cwd=ucx_source_path)
     print("--- UCX build and install complete ---", flush=True)
 
@@ -165,8 +169,13 @@ def build_and_install_prerequisites(args):
         run_command(["git", "clone", NIXL_REPO_URL, NIXL_DIR])
     else:
         run_command(["git", "fetch", "--tags"], cwd=NIXL_DIR)
-    run_command(["git", "checkout", NIXL_VERSION], cwd=NIXL_DIR)
-    print(f"--> Checked out NIXL version: {NIXL_VERSION}", flush=True)
+    if NIXL_VERSION != "0.5.1":
+        run_command(["git", "checkout", NIXL_VERSION], cwd=NIXL_DIR)
+        print(f"--> Checked out NIXL version: {NIXL_VERSION}", flush=True)
+    else:
+        run_command(["git", "checkout", PATCH_COMMIT], cwd=NIXL_DIR)
+        print(f"--> Checked out NIXL version: {PATCH_COMMIT}", flush=True)
+        run_command(["git", "apply", PATCH_DIR], cwd=NIXL_DIR)
 
     build_env = os.environ.copy()
     build_env["PKG_CONFIG_PATH"] = os.path.join(ucx_install_path, "lib", "pkgconfig")
